@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ChronoMaster ⏱️</title>
+    <style>
+        :root {
+            --bg: #020010;
+            --card: #0a0a20;
+            --border: #1e1e40;
+            --gold: #ffd700;
+            --green: #00e676;
+            --red: #ff4757;
+            --blue: #5352ed;
+            --cyan: #00e5ff;
+            --text: #e0e0f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            height: 100dvh;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            overflow: hidden;
+            padding: 10px;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(ellipse at 30% 50%, #0d0d35 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 50%, #0a0a2e 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 80%, #050520 0%, transparent 50%);
+            z-index: 0;
+        }
+        .game-container {
+            position: relative; z-index: 1; text-align: center;
+            padding: 30px 24px; width: 390px; max-width: 95vw;
+            background: rgba(10,10,30,0.85); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.06); border-radius: 32px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset;
+        }
+        h1 { font-size: 28px; color: var(--gold); margin-bottom: 2px; letter-spacing: 2px; font-weight: 800; }
+        .subtitle { color: #555; font-size: 11px; margin-bottom: 18px; letter-spacing: 0.5px; }
+        .target-card {
+            background: linear-gradient(135deg, #111130, #0c0c25);
+            border: 1px solid rgba(255,255,255,0.05); border-radius: 20px;
+            padding: 16px 18px; margin-bottom: 18px; position: relative; overflow: hidden;
+        }
+        .target-label { font-size: 11px; color: #666; margin-bottom: 4px; letter-spacing: 1px; text-transform: uppercase; }
+        .target-value {
+            font-size: 50px; font-weight: 900; color: var(--gold);
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 30px rgba(255,215,0,0.4); line-height: 1; transition: transform 0.3s;
+        }
+        .target-value .unit { font-size: 18px; color: #777; font-weight: 400; }
+        .chrono-wrapper { position: relative; width: 190px; height: 190px; margin: 22px auto; }
+        .chrono-ring {
+            position: absolute; inset: -6px; border-radius: 50%;
+            border: 2px solid transparent; opacity: 0;
+            transition: opacity 0.3s, border-color 0.3s; pointer-events: none;
+        }
+        .chrono-ring.active { opacity: 1; border-color: rgba(83,82,237,0.3); animation: ringSpin 3s linear infinite; }
+        @keyframes ringSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .chrono-circle {
+            width: 100%; height: 100%; border-radius: 50%;
+            border: 4px solid #1a1a38; display: flex; align-items: center; justify-content: center;
+            position: relative; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: radial-gradient(circle at center, #121238 0%, #08081e 100%); z-index: 2;
+        }
+        .chrono-circle.visible { border-color: var(--blue); box-shadow: 0 0 40px rgba(83,82,237,0.3), inset 0 0 40px rgba(83,82,237,0.05); }
+        .chrono-circle.hidden-phase { border-color: #14142a; box-shadow: none; background: radial-gradient(circle at center, #0a0a20 0%, #050518 100%); }
+        .chrono-circle.perfect { border-color: var(--gold); box-shadow: 0 0 55px rgba(255,215,0,0.6), inset 0 0 55px rgba(255,215,0,0.1); animation: perfectGlow 0.5s ease-in-out 4; }
+        .chrono-circle.great { border-color: var(--green); box-shadow: 0 0 35px rgba(0,230,118,0.4); }
+        .chrono-circle.good { border-color: #ffa502; box-shadow: 0 0 25px rgba(255,165,2,0.3); }
+        .chrono-circle.fail { border-color: var(--red); box-shadow: 0 0 30px rgba(255,71,87,0.4); }
+        @keyframes perfectGlow {
+            0%,100% { box-shadow: 0 0 55px rgba(255,215,0,0.6), inset 0 0 55px rgba(255,215,0,0.1); }
+            50% { box-shadow: 0 0 80px rgba(255,215,0,0.9), inset 0 0 80px rgba(255,215,0,0.2); }
+        }
+        .chrono-value {
+            font-size: 56px; font-weight: bold; color: white;
+            font-family: 'Courier New', monospace; transition: opacity 0.12s;
+            position: relative; z-index: 3;
+        }
+        .chrono-value .ms { font-size: 18px; color: #777; }
+        .chrono-value.hidden { opacity: 0; }
+        .hidden-indicator {
+            position: absolute; font-size: 30px; opacity: 0; z-index: 3;
+            animation: float 2.5s ease-in-out infinite; pointer-events: none;
+        }
+        .hidden-indicator.show { opacity: 1; }
+        @keyframes float {
+            0%,100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-12px) scale(1.1); }
+        }
+        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+        .particle {
+            position: absolute; width: 5px; height: 5px; border-radius: 50%;
+            animation: particleBurst 0.8s ease-out forwards;
+        }
+        @keyframes particleBurst {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+        }
+        .result-banner {
+            font-size: 18px; font-weight: bold; padding: 10px 16px; border-radius: 14px;
+            margin: 8px 0; display: flex; align-items: center; justify-content: center;
+            gap: 6px; animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            min-height: 40px;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.7); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .result-perfect { background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,180,0,0.1)); color: var(--gold); }
+        .result-great { background: linear-gradient(135deg, rgba(0,230,118,0.15), rgba(0,200,100,0.08)); color: var(--green); }
+        .result-good { background: linear-gradient(135deg, rgba(255,165,2,0.15), rgba(255,140,0,0.08)); color: #ffa502; }
+        .result-fail { background: linear-gradient(135deg, rgba(255,71,87,0.15), rgba(255,50,70,0.08)); color: var(--red); }
+        .diff-display { font-size: 13px; color: #888; margin-bottom: 2px; }
+        .reveal-text {
+            font-size: 14px; color: #bbb; margin: 6px 0;
+            animation: fadeIn 0.6s ease; font-family: 'Courier New', monospace;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .streak-badge {
+            display: inline-block; background: linear-gradient(135deg, #ff6b6b, #ff4757);
+            color: white; padding: 5px 14px; border-radius: 18px; font-weight: bold;
+            font-size: 13px; margin: 6px 0; animation: popIn 0.4s ease;
+            box-shadow: 0 3px 12px rgba(255,71,87,0.3);
+        }
+        .btn {
+            padding: 14px 32px; font-size: 16px; font-weight: 700; border: none;
+            border-radius: 50px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 1px; width: 85%; max-width: 260px; position: relative; overflow: hidden;
+        }
+        .btn::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0;
+            border-radius: 50%; background: rgba(255,255,255,0.15);
+            transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s;
+        }
+        .btn:active::after { width: 300px; height: 300px; }
+        .btn:active { transform: scale(0.96); }
+        .btn-start { background: var(--blue); color: white; box-shadow: 0 6px 20px rgba(83,82,237,0.35); }
+        .btn-stop { background: var(--red); color: white; box-shadow: 0 6px 20px rgba(255,71,87,0.45); animation: glowBtn 1s ease-in-out infinite; }
+        @keyframes glowBtn {
+            0%,100% { box-shadow: 0 6px 20px rgba(255,71,87,0.45); }
+            50% { box-shadow: 0 6px 35px rgba(255,71,87,0.7); }
+        }
+        .btn-next { background: var(--green); color: #000; box-shadow: 0 6px 20px rgba(0,230,118,0.35); width: auto; padding: 12px 24px; font-size: 15px; }
+        .buttons-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .score-section { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 10px 0; }
+        .score-box {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px; padding: 8px 14px; text-align: center; min-width: 60px;
+        }
+        .score-box .label { font-size: 9px; color: #555; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px; }
+        .score-box .value { font-size: 20px; font-weight: bold; color: white; }
+        .score-box .value.gold { color: var(--gold); }
+        .score-box .value.fire { color: #ff6b6b; }
+        .history-bar { display: flex; gap: 4px; justify-content: center; margin: 8px 0; flex-wrap: wrap; min-height: 10px; }
+        .history-dot {
+            width: 10px; height: 10px; border-radius: 50%; transition: transform 0.2s;
+        }
+        .history-dot:hover { transform: scale(1.8); z-index: 5; }
+        .history-dot.perfect { background: var(--gold); box-shadow: 0 0 6px rgba(255,215,0,0.4); }
+        .history-dot.great { background: var(--green); box-shadow: 0 0 5px rgba(0,230,118,0.3); }
+        .history-dot.good { background: #ffa502; box-shadow: 0 0 5px rgba(255,165,2,0.25); }
+        .history-dot.fail { background: var(--red); box-shadow: 0 0 5px rgba(255,71,87,0.25); }
+        .history-dot.new { animation: dotPop 0.4s ease; }
+        @keyframes dotPop {
+            0% { transform: scale(0); }
+            60% { transform: scale(1.8); }
+            100% { transform: scale(1); }
+        }
+        .bg-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .bg-particle {
+            position: absolute; width: 2px; height: 2px; background: var(--cyan);
+            border-radius: 50%; animation: bgFloat linear infinite; opacity: 0;
+        }
+        @keyframes bgFloat {
+            0% { transform: translateY(105vh) scale(0); opacity: 0; }
+            10% { opacity: 0.7; }
+            90% { opacity: 0.2; }
+            100% { transform: translateY(-5vh) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-particles" id="bgParticles"></div>
+<div class="game-container">
+    <h1>⏱️ ChronoMaster</h1>
+    <p class="subtitle">Le chrono disparaît aux 2/3 du temps. Estime le total.</p>
+    <div class="target-card">
+        <div class="target-label">🎯 Temps total à estimer</div>
+        <div class="target-value" id="targetValue">6<span class="unit">,00</span>s</div>
+    </div>
+    <div class="chrono-wrapper">
+        <div class="chrono-ring" id="chronoRing"></div>
+        <div class="chrono-circle" id="chronoCircle">
+            <div class="chrono-value" id="chronoValue">0<span class="ms">,00</span></div>
+            <div class="hidden-indicator" id="hiddenIndicator">🤫</div>
+            <div class="particles" id="particles"></div>
+        </div>
+    </div>
+    <div id="resultArea">
+        <div class="result-banner" id="resultBanner" style="display:none;"></div>
+        <div class="diff-display" id="diffDisplay"></div>
+        <div class="reveal-text" id="revealText" style="display:none;"></div>
+        <div id="streakBadge" style="display:none;"></div>
+    </div>
+    <button class="btn btn-start" id="mainBtn" onclick="toggleChrono()">▶ Démarrer</button>
+    <div class="buttons-row" id="secondaryBtns" style="display:none;margin-top:10px;">
+        <button class="btn btn-next" onclick="nouvelleCible()">▶ Continuer</button>
+    </div>
+    <div class="score-section">
+        <div class="score-box"><div class="label">Score</div><div class="value gold" id="scoreValue">0</div></div>
+        <div class="score-box" id="streakBox" style="display:none;"><div class="label">Série</div><div class="value fire" id="streakValue">0</div></div>
+        <div class="score-box"><div class="label">Record</div><div class="value" id="recordValue">0</div></div>
+    </div>
+    <div class="history-bar" id="historyBar"></div>
+</div>
+
+<script>
+    // --- Audio (Web Audio API) ---
+    let audioCtx = null;
+    function initAudio() {
+        if (audioCtx) return;
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { console.warn("Audio non supporté"); }
+    }
+    function playTone(freq, type, duration, volume = 0.1, startTime = 0) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + startTime);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime + startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + startTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + startTime);
+        osc.stop(audioCtx.currentTime + startTime + duration);
+    }
+    function playTick() { playTone(800, 'sine', 0.03, 0.05); }
+    function playDisappear() { playTone(300, 'triangle', 0.2, 0.15); }
+    function playStop() { playTone(200, 'square', 0.1, 0.1); }
+    function playPerfect() {
+        playTone(523, 'sine', 0.15, 0.2, 0);
+        playTone(659, 'sine', 0.15, 0.2, 0.15);
+        playTone(784, 'sine', 0.3, 0.2, 0.3);
+    }
+    function playGreat() { playTone(440, 'sine', 0.2, 0.15); playTone(554, 'sine', 0.2, 0.15, 0.2); }
+    function playGood() { playTone(350, 'sine', 0.2, 0.12); }
+    function playFail() { playTone(150, 'sawtooth', 0.4, 0.15); }
+
+    // --- Fond de particules ---
+    (function createBgParticles() {
+        const container = document.getElementById('bgParticles');
+        const colors = ['#5352ed', '#00e5ff', '#a855f7', '#00e676'];
+        for (let i = 0; i < 50; i++) {
+            const p = document.createElement('div');
+            p.className = 'bg-particle';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            p.style.animationDuration = 6 + Math.random() * 16 + 's';
+            p.style.animationDelay = Math.random() * 12 + 's';
+            p.style.width = (1 + Math.random() * 3) + 'px';
+            p.style.height = p.style.width;
+            container.appendChild(p);
+        }
+    })();
+
+    // --- Variables du jeu ---
+    let cible = 6.0;               // temps total à estimer
+    let tempsDisparition = 4.0;    // 2/3 de la cible
+    let chronoActif = false;
+    let tempsDebut = 0;
+    let tempsActuel = 0;
+    let animationId = null;
+    let resultatAffiche = false;
+    let score = parseInt(localStorage.getItem('chronoMaster_score') || '0');
+    let streak = 0;
+    let bestScore = parseInt(localStorage.getItem('chronoMaster_best') || '0');
+    let historique = [];
+    let chronoCache = false;
+    let timeoutCacheId = null;
+    let momentDisparitionReel = 0;
+    let tickInterval = null;
+
+    // Cibles possibles (temps total) entre 3 et 8.5 secondes
+    const ciblesPool = [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5];
+
+    const chronoCircle = document.getElementById('chronoCircle');
+    const chronoRing = document.getElementById('chronoRing');
+    const chronoValue = document.getElementById('chronoValue');
+    const hiddenIndicator = document.getElementById('hiddenIndicator');
+    const particles = document.getElementById('particles');
+    const mainBtn = document.getElementById('mainBtn');
+    const secondaryBtns = document.getElementById('secondaryBtns');
+    const resultBanner = document.getElementById('resultBanner');
+    const diffDisplay = document.getElementById('diffDisplay');
+    const revealText = document.getElementById('revealText');
+    const streakBadge = document.getElementById('streakBadge');
+    const targetValue = document.getElementById('targetValue');
+    const scoreValue = document.getElementById('scoreValue');
+    const streakValue = document.getElementById('streakValue');
+    const streakBox = document.getElementById('streakBox');
+    const recordValue = document.getElementById('recordValue');
+    const historyBar = document.getElementById('historyBar');
+
+    scoreValue.textContent = score;
+    recordValue.textContent = bestScore;
+
+    function saveProgress() {
+        localStorage.setItem('chronoMaster_score', score);
+        localStorage.setItem('chronoMaster_best', bestScore);
+    }
+
+    function nouvelleCible() {
+        cible = ciblesPool[Math.floor(Math.random() * ciblesPool.length)];
+        cible = Math.round((cible + (Math.random() * 0.4 - 0.2)) * 100) / 100;
+        cible = Math.max(3, Math.min(8.5, cible));
+        tempsDisparition = cible * 2 / 3;           // disparition aux 2/3
+        tempsDisparition = Math.round(tempsDisparition * 100) / 100;
+        targetValue.innerHTML = cible.toFixed(2).replace('.', ',') + '<span class="unit">s</span>';
+        resetUI();
+    }
+
+    function resetUI() {
+        chronoActif = false;
+        resultatAffiche = false;
+        chronoCache = false;
+        tempsActuel = 0;
+        momentDisparitionReel = 0;
+        if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+        if (timeoutCacheId) { clearTimeout(timeoutCacheId); timeoutCacheId = null; }
+        if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+        chronoValue.innerHTML = '0<span class="ms">,00</span>';
+        chronoValue.classList.remove('hidden');
+        chronoCircle.className = 'chrono-circle';
+        chronoRing.classList.remove('active');
+        hiddenIndicator.classList.remove('show');
+        particles.innerHTML = '';
+        resultBanner.style.display = 'none';
+        diffDisplay.textContent = '';
+        revealText.style.display = 'none';
+        streakBadge.style.display = 'none';
+        mainBtn.textContent = '▶ Démarrer';
+        mainBtn.className = 'btn btn-start';
+        mainBtn.style.opacity = '1';
+        mainBtn.style.cursor = 'pointer';
+        secondaryBtns.style.display = 'none';
+    }
+
+    function toggleChrono() {
+        if (resultatAffiche) return;
+        if (!chronoActif) { demarrer(); } else { stopper(); }
+    }
+
+    function demarrer() {
+        initAudio();
+        chronoActif = true;
+        chronoCache = false;
+        tempsDebut = performance.now();
+        chronoCircle.classList.add('visible');
+        chronoRing.classList.add('active');
+        chronoValue.classList.remove('hidden');
+        hiddenIndicator.classList.remove('show');
+        particles.innerHTML = '';
+        mainBtn.textContent = '⏹ STOP !';
+        mainBtn.className = 'btn btn-stop';
+        diffDisplay.textContent = '';
+        resultBanner.style.display = 'none';
+        revealText.style.display = 'none';
+        streakBadge.style.display = 'none';
+
+        tickInterval = setInterval(() => {
+            if (!chronoCache && chronoActif) playTick();
+        }, 100);
+
+        timeoutCacheId = setTimeout(() => {
+            momentDisparitionReel = (performance.now() - tempsDebut) / 1000;
+            cacherChrono();
+        }, tempsDisparition * 1000);
+
+        animationChrono();
+    }
+
+    function cacherChrono() {
+        chronoCache = true;
+        if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+        playDisappear();
+        chronoValue.classList.add('hidden');
+        chronoCircle.classList.remove('visible');
+        chronoCircle.classList.add('hidden-phase');
+        chronoRing.classList.remove('active');
+        hiddenIndicator.classList.add('show');
+    }
+
+    function stopper() {
+        chronoActif = false;
+        resultatAffiche = true;
+        tempsActuel = (performance.now() - tempsDebut) / 1000;
+        if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+        if (timeoutCacheId) { clearTimeout(timeoutCacheId); timeoutCacheId = null; }
+        if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+        playStop();
+        afficherTemps(tempsActuel);
+        chronoCircle.classList.remove('visible', 'hidden-phase');
+        chronoRing.classList.remove('active');
+        chronoValue.classList.remove('hidden');
+        hiddenIndicator.classList.remove('show');
+        evaluerResultat();
+    }
+
+    function animationChrono() {
+        if (!chronoActif) return;
+        tempsActuel = (performance.now() - tempsDebut) / 1000;
+        if (!chronoCache) afficherTemps(tempsActuel);
+        animationId = requestAnimationFrame(animationChrono);
+    }
+
+    function afficherTemps(t) {
+        const s = Math.floor(t);
+        const cs = Math.floor((t - s) * 100);
+        chronoValue.innerHTML = s + '<span class="ms">,' + String(cs).padStart(2, '0') + '</span>';
+    }
+
+    function creerParticules() {
+        const couleurs = ['#ffd700', '#ffaa00', '#ffcc00', '#fff', '#ffe066'];
+        for (let i = 0; i < 30; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            const angle = (Math.PI * 2 * i) / 30;
+            const distance = 30 + Math.random() * 60;
+            p.style.setProperty('--dx', Math.cos(angle) * distance + 'px');
+            p.style.setProperty('--dy', Math.sin(angle) * distance + 'px');
+            p.style.background = couleurs[Math.floor(Math.random() * couleurs.length)];
+            p.style.left = '50%';
+            p.style.top = '50%';
+            p.style.width = (3 + Math.random() * 6) + 'px';
+            p.style.height = p.style.width;
+            particles.appendChild(p);
+        }
+        setTimeout(() => { particles.innerHTML = ''; }, 900);
+    }
+
+    function evaluerResultat() {
+        const momentStop = tempsActuel;
+        // L'écart est calculé par rapport à la cible totale
+        const ecart = Math.abs(momentStop - cible);
+        let rating, classe, emoji, points;
+
+        if (ecart <= 0.03) {
+            rating = '🏆 PARFAIT !'; classe = 'result-perfect'; emoji = '🏆'; points = 100;
+            chronoCircle.classList.add('perfect'); creerParticules(); streak++;
+            playPerfect();
+        } else if (ecart <= 0.15) {
+            rating = '🌟 Excellent !'; classe = 'result-great'; emoji = '🌟'; points = 75;
+            chronoCircle.classList.add('great'); streak++;
+            playGreat();
+        } else if (ecart <= 0.50) {
+            rating = '👍 Bien joué'; classe = 'result-good'; emoji = '👍'; points = 50;
+            chronoCircle.classList.add('good'); streak = 0;
+            playGood();
+        } else if (ecart <= 1.00) {
+            rating = '😐 Pas mal'; classe = 'result-good'; emoji = '😐'; points = 25;
+            chronoCircle.classList.add('good'); streak = 0;
+            playGood();
+        } else if (ecart <= 2.00) {
+            rating = '😬 Bof...'; classe = 'result-fail'; emoji = '😬'; points = 10;
+            chronoCircle.classList.add('fail'); streak = 0;
+            playFail();
+        } else {
+            rating = '💀 Raté !'; classe = 'result-fail'; emoji = '💀'; points = 0;
+            chronoCircle.classList.add('fail'); streak = 0;
+            playFail();
+        }
+
+        score += points;
+        if (score > bestScore) { bestScore = score; recordValue.textContent = bestScore; }
+        saveProgress();
+        historique.push({ cible: cible, tempsStop: momentStop, ecart, classe });
+        const signe = momentStop >= cible ? '+' : '-';
+        diffDisplay.textContent = `Écart : ${signe}${ecart.toFixed(2).replace('.', ',')}s`;
+        resultBanner.style.display = 'flex';
+        resultBanner.textContent = `${emoji} ${rating}  +${points}pts`;
+        resultBanner.className = 'result-banner ' + classe;
+        revealText.style.display = 'block';
+        revealText.textContent = `⏱️ Arrêt : ${momentStop.toFixed(2).replace('.', ',')}s  |  🎯 Cible : ${cible.toFixed(2).replace('.', ',')}s`;
+
+        if (streak >= 3) {
+            streakBadge.style.display = 'inline-block';
+            streakBadge.textContent = '🔥 ' + streak + ' coups parfaits !';
+            streakBox.style.display = 'block';
+            streakValue.textContent = '🔥x' + streak;
+        } else if (streak === 0) { streakBox.style.display = 'none'; } else {
+            streakBox.style.display = 'block'; streakValue.textContent = 'x' + streak;
+        }
+
+        updateScore();
+        mainBtn.textContent = '🔒';
+        mainBtn.className = 'btn btn-start';
+        mainBtn.style.opacity = '0.4';
+        mainBtn.style.cursor = 'default';
+        secondaryBtns.style.display = 'flex';
+        updateHistorique();
+        if (navigator.vibrate) {
+            if (ecart <= 0.03) navigator.vibrate([20, 15, 20, 15, 60]);
+            else if (ecart <= 0.15) navigator.vibrate([15, 10, 30]);
+            else if (ecart > 2) navigator.vibrate(250);
+        }
+    }
+
+    function updateScore() { scoreValue.textContent = score; }
+
+    function updateHistorique() {
+        historyBar.innerHTML = '';
+        const derniers = historique.slice(-20);
+        derniers.forEach((h, i) => {
+            const dot = document.createElement('div');
+            dot.className = 'history-dot';
+            if (h.classe === 'result-perfect') dot.classList.add('perfect');
+            else if (h.classe === 'result-great') dot.classList.add('great');
+            else if (h.classe === 'result-good') dot.classList.add('good');
+            else dot.classList.add('fail');
+            if (i === derniers.length - 1) dot.classList.add('new');
+            dot.title = `🎯Cible: ${h.cible.toFixed(2)}s ⏱️Stop: ${h.tempsStop.toFixed(2)}s ±${h.ecart.toFixed(2)}s`;
+            historyBar.appendChild(dot);
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !resultatAffiche) { e.preventDefault(); toggleChrono(); }
+        if ((e.code === 'Enter' || e.code === 'Space') && resultatAffiche) { e.preventDefault(); nouvelleCible(); }
+    });
+
+    nouvelleCible();
+</script>
+</body>
+</html>
